@@ -13,6 +13,7 @@ jobs:
     defaults:
       run:
         working-directory: android
+
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -28,12 +29,29 @@ jobs:
         with:
           gradle-version: "8.9"
 
-      - name: Build debug APK
-        run: gradle assembleDebug
+      - name: Restore release keystore
+        env:
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+        run: echo "$ANDROID_KEYSTORE_BASE64" | base64 --decode > app/friendlyai-release.jks
 
-      - name: Upload APK
+      - name: Build signed release APK
+        env:
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          gradle assembleRelease \
+            -Pandroid.injected.signing.store.file="$GITHUB_WORKSPACE/android/app/friendlyai-release.jks" \
+            -Pandroid.injected.signing.store.password="$ANDROID_KEYSTORE_PASSWORD" \
+            -Pandroid.injected.signing.key.alias="$ANDROID_KEY_ALIAS" \
+            -Pandroid.injected.signing.key.password="$ANDROID_KEY_PASSWORD"
+
+      - name: Rename release APK
+        run: cp app/build/outputs/apk/release/app-release.apk app/build/outputs/apk/release/FriendlyAI-v1.0.0.apk
+
+      - name: Upload signed APK
         uses: actions/upload-artifact@v4
         with:
-          name: FriendlyAI-Android-APK
-          path: android/app/build/outputs/apk/debug/app-debug.apk
+          name: FriendlyAI-v1.0.0-Signed-Release
+          path: android/app/build/outputs/apk/release/FriendlyAI-v1.0.0.apk
           retention-days: 30
