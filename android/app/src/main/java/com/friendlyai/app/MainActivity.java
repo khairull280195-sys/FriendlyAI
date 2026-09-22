@@ -33,7 +33,17 @@ public class MainActivity extends Activity {
         webView.setWebViewClient(new WebViewClient());
         webView.setWebChromeClient(new WebChromeClient() {
             @Override public void onPermissionRequest(PermissionRequest request) {
-                runOnUiThread(() -> request.grant(request.getResources()));
+                runOnUiThread(() -> {
+                    java.util.ArrayList<String> allowed = new java.util.ArrayList<>();
+                    for (String resource : request.getResources()) {
+                        if (PermissionRequest.RESOURCE_AUDIO_CAPTURE.equals(resource) ||
+                            PermissionRequest.RESOURCE_VIDEO_CAPTURE.equals(resource)) {
+                            allowed.add(resource);
+                        }
+                    }
+                    if (allowed.isEmpty()) request.deny();
+                    else request.grant(allowed.toArray(new String[0]));
+                });
             }
 
             @Override public boolean onShowFileChooser(
