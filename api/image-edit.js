@@ -24,6 +24,9 @@ export default async function handler(req,res){
     return res.status(200).json({image:"data:"+type+";base64,"+buf.toString("base64")});
   }catch(e){
     const msg=e?.message||String(e);
-    return res.status(500).json({error:"Image editing failed: "+msg.slice(0,500)});
+    if(/depleted|monthly included credits|pre-paid credits|inference providers/i.test(msg)){
+      return res.status(429).json({error:"Image editing is temporarily unavailable because the monthly AI image quota has been reached. Please try again later."});
+    }
+    return res.status(500).json({error:"Image editing is temporarily unavailable. Please try again later."});
   }
 }
