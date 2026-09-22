@@ -1,7 +1,10 @@
 import { InferenceClient } from "@huggingface/inference";
 
+async function requireUser(req){const h=req.headers.authorization||"";if(!h.startsWith("Bearer "))return null;const url=process.env.SUPABASE_URL,key=process.env.SUPABASE_PUBLISHABLE_KEY;if(!url||!key)return null;const r=await fetch(url+"/auth/v1/user",{headers:{apikey:key,Authorization:h}});if(!r.ok)return null;return await r.json()}
+
 export default async function handler(req,res){
   if(req.method!=="POST") return res.status(405).json({error:"Method not allowed"});
+  const user=await requireUser(req);if(!user?.id)return res.status(401).json({error:"Please sign in again."});
   const token=process.env.HF_TOKEN;
   if(!token) return res.status(500).json({error:"HF_TOKEN is not configured"});
   try{
