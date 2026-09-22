@@ -35,7 +35,7 @@ export default async function handler(req,res){
 
     const r=await fetch("https://friendlai-image.khairull280195.workers.dev/",{
       method:"POST",
-      headers:{"Content-Type":"application/json"},
+      headers:{"Content-Type":"application/json","X-FriendlyAI-Secret":process.env.IMAGE_WORKER_SECRET||""},
       body:JSON.stringify({image,prompt})
     });
 
