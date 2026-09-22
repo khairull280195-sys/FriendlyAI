@@ -1,0 +1,1 @@
+{"name":"friendlyai","private":true,"type":"module","dependencies":{"@huggingface/inference":"^4.13.5"}}
