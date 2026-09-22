@@ -2,9 +2,11 @@ import { InferenceClient } from "@huggingface/inference";
 
 async function requireUser(req){const h=req.headers.authorization||"";if(!h.startsWith("Bearer "))return null;const url=process.env.SUPABASE_URL,key=process.env.SUPABASE_PUBLISHABLE_KEY;if(!url||!key)return null;const r=await fetch(url+"/auth/v1/user",{headers:{apikey:key,Authorization:h}});if(!r.ok)return null;return await r.json()}
 
+async function useQuota(req,kind,limit){const h=req.headers.authorization||"";const url=process.env.SUPABASE_URL,key=process.env.SUPABASE_PUBLISHABLE_KEY;const r=await fetch(url+"/rest/v1/rpc/use_daily_quota",{method:"POST",headers:{apikey:key,Authorization:h,"Content-Type":"application/json"},body:JSON.stringify({p_kind:kind,p_limit:limit})});if(!r.ok)return false;return await r.json()===true}
 export default async function handler(req,res){
   if(req.method!=="POST") return res.status(405).json({error:"Method not allowed"});
   const user=await requireUser(req);if(!user?.id)return res.status(401).json({error:"Please sign in again."});
+  if(!await useQuota(req,"image",2))return res.status(429).json({error:"You have reached today’s limit of 2 image edits. Please try again tomorrow."});
   const token=process.env.HF_TOKEN;
   if(!token) return res.status(500).json({error:"HF_TOKEN is not configured"});
   try{
