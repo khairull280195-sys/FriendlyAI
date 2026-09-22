@@ -1,1 +1,26 @@
-export default async function handler(req,res){if(req.method!=="POST")return res.status(405).json({error:"Method not allowed"});const token=process.env.HF_TOKEN;if(!token)return res.status(500).json({error:"HF_TOKEN is not configured"});try{const {image,prompt}=req.body||{};if(!image||!prompt)return res.status(400).json({error:"Image and edit instruction are required"});const base64=image.includes(",")?image.split(",")[1]:image;const r=await fetch("https://router.huggingface.co/fal-ai/hf-inference/models/black-forest-labs/FLUX.2-klein-9B",{method:"POST",headers:{Authorization:"Bearer "+token,"Content-Type":"application/json","Accept":"image/*"},body:JSON.stringify({inputs:base64,parameters:{prompt}})});if(!r.ok){const t=await r.text();return res.status(r.status).json({error:t.slice(0,500)||"Image edit provider error"})}const type=r.headers.get("content-type")||"image/jpeg";const buf=Buffer.from(await r.arrayBuffer());return res.status(200).json({image:"data:"+type+";base64,"+buf.toString("base64")})}catch(e){return res.status(500).json({error:"Image editing failed: "+e.message})}}
+import { InferenceClient } from "@huggingface/inference";
+
+export default async function handler(req,res){
+  if(req.method!=="POST") return res.status(405).json({error:"Method not allowed"});
+  const token=process.env.HF_TOKEN;
+  if(!token) return res.status(500).json({error:"HF_TOKEN is not configured"});
+  try{
+    const {image,prompt}=req.body||{};
+    if(!image||!prompt) return res.status(400).json({error:"Image and edit instruction are required"});
+    const base64=image.includes(",")?image.split(",")[1]:image;
+    const bytes=Buffer.from(base64,"base64");
+    const client=new InferenceClient(token);
+    const output=await client.imageToImage({
+      provider:"fal-ai",
+      model:"black-forest-labs/FLUX.2-dev",
+      inputs:new Blob([bytes],{type:"image/jpeg"}),
+      parameters:{prompt}
+    });
+    const buf=Buffer.from(await output.arrayBuffer());
+    const type=output.type||"image/jpeg";
+    return res.status(200).json({image:"data:"+type+";base64,"+buf.toString("base64")});
+  }catch(e){
+    const msg=e?.message||String(e);
+    return res.status(500).json({error:"Image editing failed: "+msg.slice(0,500)});
+  }
+}
