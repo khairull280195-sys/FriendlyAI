@@ -7,6 +7,9 @@ on:
       - "android/**"
       - ".github/workflows/android-apk.yml"
 
+permissions:
+  contents: write
+
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -64,3 +67,19 @@ jobs:
           name: FriendlyAI-v1.2.0-PlayStore-AAB
           path: android/app/build/outputs/bundle/release/FriendlyAI-v1.2.0.aab
           retention-days: 30
+
+      - name: Publish GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v1.2.0
+          name: FriendlyAI v1.2.0
+          body: |
+            FriendlyAI Android v1.2.0
+            - Free AI assistant
+            - Google and email sign-in
+            - AI chat, image upload/editing and voice input
+          files: |
+            android/app/build/outputs/apk/release/FriendlyAI-v1.2.0.apk
+            android/app/build/outputs/bundle/release/FriendlyAI-v1.2.0.aab
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
