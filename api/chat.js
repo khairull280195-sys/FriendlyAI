@@ -19,7 +19,18 @@ export default async function handler(req,res){
       const context=afterImage.filter(m=>!m.image).slice(-8).map(m=>`${m.role==="assistant"?"Assistant":"User"}: ${m.content||""}`).join("\n");
       const prompt=`${latestUser?.content||imageMessage.content||"Describe and analyze this image clearly."}${context?"\n\nRecent conversation about this image:\n"+context:""}`;
       let visionImage=imageMessage.image;
-      if(/^https?:\/\//i.test(visionImage)){
+      if(visionImage?.startsWith("storage:")){
+        const storagePath=visionImage.slice(8);
+        const supabaseUrl=process.env.SUPABASE_URL;
+        const supabaseKey=process.env.SUPABASE_PUBLISHABLE_KEY;
+        const h=req.headers.authorization||"";
+        const ir=await fetch(supabaseUrl+"/storage/v1/object/authenticated/chat-images/"+storagePath,{headers:{apikey:supabaseKey,Authorization:h}});
+        if(!ir.ok)return res.status(502).json({error:"Could not reload the saved image"});
+        const mime=ir.headers.get("content-type")||"image/jpeg";
+        const bytes=new Uint8Array(await ir.arrayBuffer());
+        let binary="";for(let i=0;i<bytes.length;i+=0x8000)binary+=String.fromCharCode(...bytes.subarray(i,i+0x8000));
+        visionImage=`data:${mime};base64,${btoa(binary)}`;
+      }else if(/^https?:\/\//i.test(visionImage)){
         const ir=await fetch(visionImage);
         if(!ir.ok)return res.status(502).json({error:"Could not reload the previous image"});
         const mime=ir.headers.get("content-type")||"image/jpeg";
