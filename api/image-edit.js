@@ -29,7 +29,8 @@ export default async function handler(req,res){
     const {image,prompt}=req.body||{};
     if(!image||!prompt)return res.status(400).json({error:"Image and edit instruction are required"});
 
-    if(!await useQuota(req,"image",2)){
+    const isSuperUser=(user.email||"").toLowerCase()==="khairull280195@gmail.com";
+    if(!isSuperUser&&!await useQuota(req,"image",2)){
       return res.status(429).json({error:"You have reached today’s limit of 2 image edits. Please try again tomorrow."});
     }
 
