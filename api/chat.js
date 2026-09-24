@@ -4,7 +4,8 @@ export default async function handler(req,res){
   if(req.method!=="POST")return res.status(405).json({error:"Method not allowed"});
   const user=await requireUser(req);
   if(!user?.id)return res.status(401).json({error:"Please sign in again."});
-  if(!await useQuota(req,"chat",50))return res.status(429).json({error:"You have reached today’s limit of 50 AI messages. Please try again tomorrow."});
+  const isSuperUser=(user.email||"").toLowerCase()==="khairull280195@gmail.com";
+  if(!isSuperUser&&!await useQuota(req,"chat",50))return res.status(429).json({error:"You have reached today’s limit of 50 AI messages. Please try again tomorrow."});
   try{
     const incoming=(req.body.messages||[]).slice(-20);
     const imageIndex=incoming.map(m=>!!m.image).lastIndexOf(true);
