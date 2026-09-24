@@ -49,7 +49,8 @@ export default async function handler(req,res){
     }
 
     // Text chat also uses the Cloudflare Worker, so FriendlyAI no longer depends on HF credits.
-    const workerUrl=process.env.VISION_WORKER_URL,secret=process.env.VISION_SECRET;
+    const workerUrl=process.env.TEXT_WORKER_URL||process.env.VISION_WORKER_URL;
+    const secret=process.env.TEXT_WORKER_SECRET||process.env.VISION_SECRET;
     if(!workerUrl||!secret)return res.status(500).json({error:"AI service is not configured"});
     const transcript=incoming.slice(-16).map(m=>`${m.role==="assistant"?"Assistant":"User"}: ${m.content||""}`).join("\n");
     const prompt=`You are FriendlyAI, a capable, friendly general-purpose AI assistant.
@@ -76,7 +77,7 @@ ${transcript}`;
     // The current Cloudflare worker expects an image on every request. For text-only chat,
     // send a tiny transparent PNG so the worker can use the same AI route without HF.
     const blankImage="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=";
-    const r=await fetch(workerUrl,{method:"POST",headers:{Authorization:"Bearer "+secret,"Content-Type":"application/json"},body:JSON.stringify({image:blankImage,prompt})});
+    const r=await fetch(workerUrl,{method:"POST",headers:{Authorization:"Bearer "+secret,"Content-Type":"application/json"},body:JSON.stringify(process.env.TEXT_WORKER_URL?{prompt}:{image:blankImage,prompt})});
     const data=await r.json().catch(()=>({}));
     if(!r.ok)return res.status(r.status).json({error:data.error||"AI provider error"});
     const result=typeof data.result==="string"?data.result:(data.result?.response||data.response||JSON.stringify(data.result||data));
