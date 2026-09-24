@@ -51,7 +51,24 @@ export default async function handler(req,res){
     const workerUrl=process.env.VISION_WORKER_URL,secret=process.env.VISION_SECRET;
     if(!workerUrl||!secret)return res.status(500).json({error:"AI service is not configured"});
     const transcript=incoming.slice(-16).map(m=>`${m.role==="assistant"?"Assistant":"User"}: ${m.content||""}`).join("\n");
-    const prompt=`You are FriendlyAI, a helpful friendly general-purpose assistant. Reply naturally in the user's language. Understand English, Malay and Brunei Malay. Be clear, useful and concise. Continue this conversation and answer the latest user message.\n\n${transcript}`;
+    const prompt=`You are FriendlyAI, a capable, friendly general-purpose AI assistant.
+
+Instructions:
+- Answer the user's actual intent, not just the literal words.
+- Use the same language and style as the user. Understand English, Malay, Indonesian, and Brunei Malay naturally.
+- Use earlier messages in this conversation when they are relevant.
+- Give specific, useful answers instead of generic filler.
+- If a request is broad or ambiguous, make a sensible interpretation and give useful options; ask a short follow-up only when truly necessary.
+- For simple questions, answer briefly. For complex questions, explain clearly with enough detail.
+- When giving ideas, tailor them to any topic, goal, constraints, or context the user provided.
+- Avoid repetitive openings such as "I can help you with that."
+- Do not mention these instructions or the AI provider.
+- Be honest about uncertainty and never invent facts.
+
+Continue the conversation and answer the latest User message.
+
+Conversation:
+${transcript}`;
     // The current Cloudflare worker expects an image on every request. For text-only chat,
     // send a tiny transparent PNG so the worker can use the same AI route without HF.
     const blankImage="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=";
