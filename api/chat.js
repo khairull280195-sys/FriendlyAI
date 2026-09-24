@@ -18,7 +18,16 @@ export default async function handler(req,res){
       const latestUser=[...afterImage].reverse().find(m=>m.role==="user");
       const context=afterImage.filter(m=>!m.image).slice(-8).map(m=>`${m.role==="assistant"?"Assistant":"User"}: ${m.content||""}`).join("\n");
       const prompt=`${latestUser?.content||imageMessage.content||"Describe and analyze this image clearly."}${context?"\n\nRecent conversation about this image:\n"+context:""}`;
-      const r=await fetch(workerUrl,{method:"POST",headers:{Authorization:"Bearer "+secret,"Content-Type":"application/json"},body:JSON.stringify({image:imageMessage.image,prompt})});
+      let visionImage=imageMessage.image;
+      if(/^https?:\/\//i.test(visionImage)){
+        const ir=await fetch(visionImage);
+        if(!ir.ok)return res.status(502).json({error:"Could not reload the previous image"});
+        const mime=ir.headers.get("content-type")||"image/jpeg";
+        const bytes=new Uint8Array(await ir.arrayBuffer());
+        let binary="";for(let i=0;i<bytes.length;i+=0x8000)binary+=String.fromCharCode(...bytes.subarray(i,i+0x8000));
+        visionImage=`data:${mime};base64,${btoa(binary)}`;
+      }
+      const r=await fetch(workerUrl,{method:"POST",headers:{Authorization:"Bearer "+secret,"Content-Type":"application/json"},body:JSON.stringify({image:visionImage,prompt})});
       const data=await r.json().catch(()=>({}));
       if(!r.ok)return res.status(r.status).json({error:data.error||"Vision provider error"});
       const result=typeof data.result==="string"?data.result:(data.result?.response||data.response||JSON.stringify(data.result||data));
