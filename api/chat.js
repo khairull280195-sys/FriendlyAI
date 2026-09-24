@@ -6,13 +6,18 @@ export default async function handler(req,res){
   if(!user?.id)return res.status(401).json({error:"Please sign in again."});
   if(!await useQuota(req,"chat",50))return res.status(429).json({error:"You have reached today’s limit of 50 AI messages. Please try again tomorrow."});
   try{
-    const incoming=(req.body.messages||[]).slice(-20),hasImage=incoming.some(m=>m.image);
+    const incoming=(req.body.messages||[]).slice(-20);
+    const imageIndex=incoming.map(m=>!!m.image).lastIndexOf(true);
 
-    if(hasImage){
+    // Keep using the most recent image for follow-up questions in the same chat.
+    if(imageIndex!==-1){
       const workerUrl=process.env.VISION_WORKER_URL,secret=process.env.VISION_SECRET;
       if(!workerUrl||!secret)return res.status(500).json({error:"Vision service is not configured"});
-      const imageMessage=[...incoming].reverse().find(m=>m.image);
-      const prompt=imageMessage?.content||"Describe and analyze this image clearly.";
+      const imageMessage=incoming[imageIndex];
+      const afterImage=incoming.slice(imageIndex);
+      const latestUser=[...afterImage].reverse().find(m=>m.role==="user");
+      const context=afterImage.filter(m=>!m.image).slice(-8).map(m=>`${m.role==="assistant"?"Assistant":"User"}: ${m.content||""}`).join("\n");
+      const prompt=`${latestUser?.content||imageMessage.content||"Describe and analyze this image clearly."}${context?"\n\nRecent conversation about this image:\n"+context:""}`;
       const r=await fetch(workerUrl,{method:"POST",headers:{Authorization:"Bearer "+secret,"Content-Type":"application/json"},body:JSON.stringify({image:imageMessage.image,prompt})});
       const data=await r.json().catch(()=>({}));
       if(!r.ok)return res.status(r.status).json({error:data.error||"Vision provider error"});
