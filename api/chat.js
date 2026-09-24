@@ -47,15 +47,17 @@ export default async function handler(req,res){
       return res.end(result||"I could not analyze that image.");
     }
 
-    const token=process.env.HF_TOKEN;
-    if(!token)return res.status(500).json({error:"HF_TOKEN is not configured"});
-    const messages=[{role:"system",content:"You are FriendlyAI, a helpful friendly general-purpose assistant. Reply naturally in the user's language. Understand English, Malay and Brunei Malay. Be clear, useful and concise."},...incoming.map(m=>({role:m.role,content:m.content}))];
-    const r=await fetch("https://router.huggingface.co/v1/chat/completions",{method:"POST",headers:{Authorization:"Bearer "+token,"Content-Type":"application/json"},body:JSON.stringify({model:"openai/gpt-oss-20b:groq",messages,max_tokens:700,temperature:.7,stream:true})});
-    if(!r.ok){const data=await r.json().catch(()=>({}));return res.status(r.status).json({error:data.error?.message||JSON.stringify(data.error||data).slice(0,300)||"AI provider error"})}
+    // Text chat also uses the Cloudflare Worker, so FriendlyAI no longer depends on HF credits.
+    const workerUrl=process.env.VISION_WORKER_URL,secret=process.env.VISION_SECRET;
+    if(!workerUrl||!secret)return res.status(500).json({error:"AI service is not configured"});
+    const transcript=incoming.slice(-16).map(m=>`${m.role==="assistant"?"Assistant":"User"}: ${m.content||""}`).join("\n");
+    const prompt=`You are FriendlyAI, a helpful friendly general-purpose assistant. Reply naturally in the user's language. Understand English, Malay and Brunei Malay. Be clear, useful and concise. Continue this conversation and answer the latest user message.\n\n${transcript}`;
+    const r=await fetch(workerUrl,{method:"POST",headers:{Authorization:"Bearer "+secret,"Content-Type":"application/json"},body:JSON.stringify({prompt})});
+    const data=await r.json().catch(()=>({}));
+    if(!r.ok)return res.status(r.status).json({error:data.error||"AI provider error"});
+    const result=typeof data.result==="string"?data.result:(data.result?.response||data.response||JSON.stringify(data.result||data));
     res.setHeader("Content-Type","text/plain; charset=utf-8");
     res.setHeader("Cache-Control","no-cache, no-transform");
-    const reader=r.body.getReader(),decoder=new TextDecoder();let buffer="";
-    while(true){const {done,value}=await reader.read();if(done)break;buffer+=decoder.decode(value,{stream:true});const lines=buffer.split("\n");buffer=lines.pop()||"";for(const line of lines){if(!line.startsWith("data: "))continue;const raw=line.slice(6).trim();if(raw==="[DONE]")continue;try{const j=JSON.parse(raw),t=j.choices?.[0]?.delta?.content;if(t)res.write(t)}catch{}}}
-    res.end();
+    return res.end(result||"FriendlyAI could not answer right now.");
   }catch(e){if(!res.headersSent)return res.status(500).json({error:"FriendlyAI backend error"});res.end()}
 }
