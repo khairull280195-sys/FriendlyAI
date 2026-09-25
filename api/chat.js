@@ -1,5 +1,6 @@
 async function requireUser(req){const h=req.headers.authorization||"";if(!h.startsWith("Bearer "))return null;const url=process.env.SUPABASE_URL,key=process.env.SUPABASE_PUBLISHABLE_KEY;if(!url||!key)return null;const r=await fetch(url+"/auth/v1/user",{headers:{apikey:key,Authorization:h}});if(!r.ok)return null;return await r.json()}
 async function useQuota(req,kind,limit){const h=req.headers.authorization||"";const url=process.env.SUPABASE_URL,key=process.env.SUPABASE_PUBLISHABLE_KEY;const r=await fetch(url+"/rest/v1/rpc/use_daily_quota",{method:"POST",headers:{apikey:key,Authorization:h,"Content-Type":"application/json"},body:JSON.stringify({p_kind:kind,p_limit:limit})});if(!r.ok)return false;return await r.json()===true}
+async function recordOwnerUsage(req,kind){const h=req.headers.authorization||"";const url=process.env.SUPABASE_URL,key=process.env.SUPABASE_PUBLISHABLE_KEY;if(!url||!key)return;try{await fetch(url+"/rest/v1/rpc/use_daily_quota",{method:"POST",headers:{apikey:key,Authorization:h,"Content-Type":"application/json"},body:JSON.stringify({p_kind:kind,p_limit:1000000000})})}catch(e){}}
 export default async function handler(req,res){
   if(req.method!=="POST")return res.status(405).json({error:"Method not allowed"});
   const user=await requireUser(req);
@@ -52,11 +53,12 @@ export default async function handler(req,res){
         if(et.includes("application/json")){
           const ed=await er.json().catch(()=>({}));
           if(!er.ok)return res.status(er.status).json({error:ed.error||"Image editing is temporarily unavailable."});
-          if(ed.image)return res.status(200).json({image:ed.image});
+          if(ed.image){if(isSuperUser)await recordOwnerUsage(req,"image");return res.status(200).json({image:ed.image});}
           return res.status(500).json({error:"Image editor did not return an edited image."});
         }
         if(!er.ok)return res.status(er.status).json({error:"Image editing is temporarily unavailable."});
         const buf=Buffer.from(await er.arrayBuffer());
+        if(isSuperUser)await recordOwnerUsage(req,"image");
         return res.status(200).json({image:"data:"+et+";base64,"+buf.toString("base64")});
       }
       const prompt=`Answer the user's exact image question in the same language/register they used. If they use Brunei Malay, reply naturally in Brunei Malay. Keep simple image answers to 1-3 short sentences unless detail is explicitly requested. Do not repeat any sentence, phrase, object description, or list item. Stop after the answer is complete. Do not describe unrelated parts of the image. Do not invent details that are not clearly visible. If uncertain, say so briefly.\n\nUser question: ${userQuestion}${context?"\\n\\nRecent conversation about this image:\\n"+context:""}`;
@@ -86,6 +88,7 @@ export default async function handler(req,res){
       const result=typeof data.result==="string"?data.result:(data.result?.response||data.response||JSON.stringify(data.result||data));
       res.setHeader("Content-Type","text/plain; charset=utf-8");
       res.setHeader("Cache-Control","no-cache, no-transform");
+      if(isSuperUser)await recordOwnerUsage(req,"chat");
       return res.end(result||"I could not analyze that image.");
     }
 
@@ -156,6 +159,7 @@ ${transcript}`;
     const result=typeof data.result==="string"?data.result:(data.result?.response||data.response||JSON.stringify(data.result||data));
     res.setHeader("Content-Type","text/plain; charset=utf-8");
     res.setHeader("Cache-Control","no-cache, no-transform");
+    if(isSuperUser)await recordOwnerUsage(req,"chat");
     return res.end(result||"FriendlyAI could not answer right now.");
   }catch(e){if(!res.headersSent)return res.status(500).json({error:"FriendlyAI backend error"});res.end()}
 }
