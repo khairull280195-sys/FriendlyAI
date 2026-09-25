@@ -19,7 +19,7 @@ export default async function handler(req,res){
       const latestUser=[...afterImage].reverse().find(m=>m.role==="user");
       const context=afterImage.filter(m=>!m.image).slice(-8).map(m=>`${m.role==="assistant"?"Assistant":"User"}: ${m.content||""}`).join("\n");
       const userQuestion=latestUser?.content||imageMessage.content||"Describe and analyze this image clearly.";
-      const prompt=`Answer the user in the same language and register they used. If the user writes in Brunei Malay or asks to cakap Brunei, reply in natural everyday Brunei Malay (for example: awu/au, inda, ani, atu, bulih, arah, tani, kau) and avoid drifting into standard Malaysian/Indonesian Malay. Answer the exact question directly and briefly unless they ask for detail. Do not describe unrelated parts of the image.\n\nUser question: ${userQuestion}${context?"\\n\\nRecent conversation about this image:\\n"+context:""}`;
+      const prompt=`Answer the user's exact image question in the same language/register they used. If they use Brunei Malay, reply naturally in Brunei Malay. Keep simple image answers to 1-3 short sentences unless detail is explicitly requested. Do not repeat any sentence, phrase, object description, or list item. Stop after the answer is complete. Do not describe unrelated parts of the image. Do not invent details that are not clearly visible. If uncertain, say so briefly.\n\nUser question: ${userQuestion}${context?"\\n\\nRecent conversation about this image:\\n"+context:""}`;
       let visionImage=imageMessage.image;
       if(visionImage?.startsWith("storage:")){
         const storagePath=visionImage.slice(8);
