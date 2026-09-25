@@ -20,8 +20,10 @@ export default async function handler(req,res){
       const context=afterImage.filter(m=>!m.image).slice(-8).map(m=>`${m.role==="assistant"?"Assistant":"User"}: ${m.content||""}`).join("\n");
       const userQuestion=latestUser?.content||imageMessage.content||"Describe and analyze this image clearly.";
       const editIntent=/\b(remove|delete|erase|hapus|buang|hilangkan|tukar|ubah|change|replace|edit|background|latar|crop|resize|recolor|colour|color|cerahkan|brighten|enhance|kemaskan)\b/i.test(userQuestion);
-      if(editIntent && latestUser && latestUser!==imageMessage){
-        let editImage=imageMessage.image;
+      const latestUserIndex=incoming.map(m=>m.role==="user").lastIndexOf(true);
+      const sourceImageMessage=[...incoming.slice(0,latestUserIndex)].reverse().find(m=>m.image)||imageMessage;
+      if(editIntent && latestUserIndex>imageIndex){
+        let editImage=sourceImageMessage.image;
         if(editImage?.startsWith("storage:")){
           const storagePath=editImage.slice(8);
           const supabaseUrl=process.env.SUPABASE_URL;
