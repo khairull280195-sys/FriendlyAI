@@ -19,6 +19,44 @@ export default async function handler(req,res){
       const latestUser=[...afterImage].reverse().find(m=>m.role==="user");
       const context=afterImage.filter(m=>!m.image).slice(-8).map(m=>`${m.role==="assistant"?"Assistant":"User"}: ${m.content||""}`).join("\n");
       const userQuestion=latestUser?.content||imageMessage.content||"Describe and analyze this image clearly.";
+      const editIntent=/\b(remove|delete|erase|hapus|buang|hilangkan|tukar|ubah|change|replace|edit|background|latar|crop|resize|recolor|colour|color|cerahkan|brighten|enhance|kemaskan)\b/i.test(userQuestion);
+      if(editIntent && latestUser && latestUser!==imageMessage){
+        let editImage=imageMessage.image;
+        if(editImage?.startsWith("storage:")){
+          const storagePath=editImage.slice(8);
+          const supabaseUrl=process.env.SUPABASE_URL;
+          const supabaseKey=process.env.SUPABASE_PUBLISHABLE_KEY;
+          const h=req.headers.authorization||"";
+          const ir=await fetch(supabaseUrl+"/storage/v1/object/authenticated/chat-images/"+storagePath,{headers:{apikey:supabaseKey,Authorization:h}});
+          if(!ir.ok)return res.status(502).json({error:"Could not reload the saved image"});
+          const mime=ir.headers.get("content-type")||"image/jpeg";
+          const bytes=new Uint8Array(await ir.arrayBuffer());
+          let binary="";for(let i=0;i<bytes.length;i+=0x8000)binary+=String.fromCharCode(...bytes.subarray(i,i+0x8000));
+          editImage=`data:${mime};base64,${btoa(binary)}`;
+        }else if(/^https?:\/\//i.test(editImage)){
+          const ir=await fetch(editImage);
+          if(!ir.ok)return res.status(502).json({error:"Could not reload the previous image"});
+          const mime=ir.headers.get("content-type")||"image/jpeg";
+          const bytes=new Uint8Array(await ir.arrayBuffer());
+          let binary="";for(let i=0;i<bytes.length;i+=0x8000)binary+=String.fromCharCode(...bytes.subarray(i,i+0x8000));
+          editImage=`data:${mime};base64,${btoa(binary)}`;
+        }
+        const er=await fetch("https://friendlai-image.khairull280195.workers.dev/",{
+          method:"POST",
+          headers:{"Content-Type":"application/json","X-FriendlyAI-Secret":process.env.IMAGE_WORKER_SECRET||""},
+          body:JSON.stringify({image:editImage,prompt:userQuestion})
+        });
+        const et=er.headers.get("content-type")||"";
+        if(et.includes("application/json")){
+          const ed=await er.json().catch(()=>({}));
+          if(!er.ok)return res.status(er.status).json({error:ed.error||"Image editing is temporarily unavailable."});
+          if(ed.image)return res.status(200).json({image:ed.image});
+          return res.status(500).json({error:"Image editor did not return an edited image."});
+        }
+        if(!er.ok)return res.status(er.status).json({error:"Image editing is temporarily unavailable."});
+        const buf=Buffer.from(await er.arrayBuffer());
+        return res.status(200).json({image:"data:"+et+";base64,"+buf.toString("base64")});
+      }
       const prompt=`Answer the user's exact image question in the same language/register they used. If they use Brunei Malay, reply naturally in Brunei Malay. Keep simple image answers to 1-3 short sentences unless detail is explicitly requested. Do not repeat any sentence, phrase, object description, or list item. Stop after the answer is complete. Do not describe unrelated parts of the image. Do not invent details that are not clearly visible. If uncertain, say so briefly.\n\nUser question: ${userQuestion}${context?"\\n\\nRecent conversation about this image:\\n"+context:""}`;
       let visionImage=imageMessage.image;
       if(visionImage?.startsWith("storage:")){
