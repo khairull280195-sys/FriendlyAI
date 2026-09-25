@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://friendly-ai-chi.vercel.app/sitemap.xml
