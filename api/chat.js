@@ -18,7 +18,7 @@ export default async function handler(req,res){
       const afterImage=incoming.slice(imageIndex);
       const latestUser=[...afterImage].reverse().find(m=>m.role==="user");
       const context=afterImage.filter(m=>!m.image).slice(-8).map(m=>`${m.role==="assistant"?"Assistant":"User"}: ${m.content||""}`).join("\n");
-      const prompt=`${latestUser?.content||imageMessage.content||"Describe and analyze this image clearly."}${context?"\n\nRecent conversation about this image:\n"+context:""}`;
+      const userQuestion=latestUser?.content||imageMessage.content||"Describe and analyze this image clearly.";\n      const prompt=`Answer the user in the same language and register they used. If the user writes in Brunei Malay or asks to cakap Brunei, reply in natural everyday Brunei Malay (for example: awu/au, inda, ani, atu, bulih, arah, tani, kau) and avoid drifting into standard Malaysian/Indonesian Malay. Answer the exact question directly and briefly unless they ask for detail. Do not describe unrelated parts of the image.\n\nUser question: ${userQuestion}${context?"\\n\\nRecent conversation about this image:\\n"+context:""}`;
       let visionImage=imageMessage.image;
       if(visionImage?.startsWith("storage:")){
         const storagePath=visionImage.slice(8);
