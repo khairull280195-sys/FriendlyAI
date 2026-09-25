@@ -19,7 +19,7 @@ export default async function handler(req,res){
       const latestUser=[...afterImage].reverse().find(m=>m.role==="user");
       const context=afterImage.filter(m=>!m.image).slice(-8).map(m=>`${m.role==="assistant"?"Assistant":"User"}: ${m.content||""}`).join("\n");
       const userQuestion=latestUser?.content||imageMessage.content||"Describe and analyze this image clearly.";
-      const editIntent=/\b(remove|delete|erase|hapus|buang|hilangkan|tukar|ubah|change|replace|edit|background|latar|crop|resize|recolor|colour|color|cerahkan|brighten|enhance|kemaskan)\b/i.test(userQuestion);
+      const editIntent=/\b(remove|delete|erase|hapus|buang|hilangkan|tukar|ubah|change|replace|edit|background|latar|crop|resize|recolor|colour|color|cerahkan|brighten|enhance|kemaskan|cartoon|anime|stylize|stylise|style|transform|convert|jadikan|buatkan)\b/i.test(userQuestion)||/\b(make|turn|change|convert)\b[\s\S]{0,40}\b(cartoon|anime|style|illustration|drawing|sketch|painting)\b/i.test(userQuestion);
       const latestUserIndex=incoming.map(m=>m.role==="user").lastIndexOf(true);
       const sourceImageMessage=[...incoming.slice(0,latestUserIndex)].reverse().find(m=>m.image)||imageMessage;
       if(editIntent && latestUserIndex>imageIndex){
