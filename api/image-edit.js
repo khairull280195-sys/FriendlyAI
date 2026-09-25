@@ -20,6 +20,13 @@ async function useQuota(req,kind,limit){
   return await r.json()===true;
 }
 
+async function recordOwnerUsage(req,kind){
+  const h=req.headers.authorization||"";
+  const url=process.env.SUPABASE_URL,key=process.env.SUPABASE_PUBLISHABLE_KEY;
+  if(!url||!key)return;
+  try{await fetch(url+"/rest/v1/rpc/use_daily_quota",{method:"POST",headers:{apikey:key,Authorization:h,"Content-Type":"application/json"},body:JSON.stringify({p_kind:kind,p_limit:1000000000})});}catch(e){}
+}
+
 export default async function handler(req,res){
   if(req.method!=="POST")return res.status(405).json({error:"Method not allowed"});
   const user=await requireUser(req);
@@ -44,12 +51,13 @@ export default async function handler(req,res){
     if(type.includes("application/json")){
       const data=await r.json();
       if(!r.ok)return res.status(r.status).json({error:data.error||"Image editing is temporarily unavailable."});
-      if(data.image)return res.status(200).json({image:data.image});
+      if(data.image){if(isSuperUser)await recordOwnerUsage(req,"image");return res.status(200).json({image:data.image});}
       return res.status(500).json({error:"Cloudflare did not return an edited image."});
     }
 
     if(!r.ok)return res.status(r.status).json({error:"Image editing is temporarily unavailable."});
     const buf=Buffer.from(await r.arrayBuffer());
+    if(isSuperUser)await recordOwnerUsage(req,"image");
     return res.status(200).json({image:"data:"+type+";base64,"+buf.toString("base64")});
   }catch(e){
     return res.status(500).json({error:"Image editing is temporarily unavailable. Please try again later."});
